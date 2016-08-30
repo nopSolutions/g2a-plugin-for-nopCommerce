@@ -1,0 +1,9 @@
+﻿Group: Payment methods
+FriendlyName: G2APay
+SystemName: Payments.G2APay
+Version: 1.1
+SupportedVersions: 3.80
+Author: nopCommerce team
+DisplayOrder: 1
+FileName: Nop.Plugin.Payments.G2APay.dll
+Description: This plugin allows paying with G2APay

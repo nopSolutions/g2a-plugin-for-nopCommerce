@@ -1,0 +1,95 @@
+﻿@{
+    Layout = "";
+}
+@model ConfigurationModel
+@using Nop.Plugin.Payments.G2APay.Models;
+@using Nop.Web.Framework;
+
+@Html.Action("StoreScopeConfiguration", "Setting", new { area = "Admin" })
+
+@using (Html.BeginForm())
+{
+    @Html.AntiForgeryToken()
+    <div class="panel-group">
+        <div class="panel panel-default">
+            <div class="panel-body">
+                <p>
+                    For plugin configuration follow these steps:<br />
+                    <br />
+                    1. Fill in your G2APay account details below<br />
+                    2. Enter Your IPN URI (http://www.yourStore.com/Plugins/PaymentG2APay/IPNHandler/@(Model.ActiveStoreScopeConfiguration)) in section Settings > Merchant on your G2APay account.<br />
+                    @if (Model.ActiveStoreScopeConfiguration > 0)
+                    {
+                        <em>Note: Your IPN URI will be different depending on the store, just copy it above and replace www.yourStore.com to your host</em>
+                    }
+                </p>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.ApiHash_OverrideForStore, model => model.ApiHash, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.ApiHash)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.ApiHash)
+                        @Html.ValidationMessageFor(model => model.ApiHash)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.SecretKey_OverrideForStore, model => model.SecretKey, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.SecretKey)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.SecretKey)
+                        @Html.ValidationMessageFor(model => model.SecretKey)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.NopLabelFor(model => model.MerchantEmail)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.MerchantEmail)
+                        @Html.ValidationMessageFor(model => model.MerchantEmail)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.UseSandbox_OverrideForStore, model => model.UseSandbox, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.UseSandbox)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.UseSandbox)
+                        @Html.ValidationMessageFor(model => model.UseSandbox)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.AdditionalFee_OverrideForStore, model => model.AdditionalFee, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.AdditionalFee)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.AdditionalFee)
+                        @Html.ValidationMessageFor(model => model.AdditionalFee)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-3">
+                        @Html.OverrideStoreCheckboxFor(model => model.AdditionalFeePercentage_OverrideForStore, model => model.AdditionalFeePercentage, Model.ActiveStoreScopeConfiguration)
+                        @Html.NopLabelFor(model => model.AdditionalFeePercentage)
+                    </div>
+                    <div class="col-md-9">
+                        @Html.NopEditorFor(model => model.AdditionalFeePercentage)
+                        @Html.ValidationMessageFor(model => model.AdditionalFeePercentage)
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-9 col-md-offset-3">
+                        <button type="submit" class="btn btn-primary">
+                            @T("Admin.Common.Save")
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>   
+}
