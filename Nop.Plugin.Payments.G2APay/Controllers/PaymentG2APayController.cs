@@ -7,7 +7,6 @@ using System.Text;
 using System.Web.Mvc;
 using Nop.Core;
 using Nop.Core.Domain.Orders;
-using Nop.Core.Domain.Payments;
 using Nop.Plugin.Payments.G2APay.Models;
 using Nop.Services.Configuration;
 using Nop.Services.Localization;
@@ -159,12 +158,32 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
             /* We do not clear cache after each setting update.
              * This behavior can increase performance because cached settings will not be cleared 
              * and loaded from database after each update */
-            _settingService.SaveSettingOverridablePerStore(g2apayPaymentSettings, x => x.ApiHash, model.ApiHash_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(g2apayPaymentSettings, x => x.SecretKey, model.SecretKey_OverrideForStore, storeScope, false);
+            if (model.ApiHash_OverrideForStore || storeScope == 0)
+                _settingService.SaveSetting(g2apayPaymentSettings, x => x.ApiHash, storeScope, false);
+            else if (storeScope > 0)
+                _settingService.DeleteSetting(g2apayPaymentSettings, x => x.ApiHash, storeScope);
+
+            if (model.SecretKey_OverrideForStore || storeScope == 0)
+                _settingService.SaveSetting(g2apayPaymentSettings, x => x.SecretKey, storeScope, false);
+            else if (storeScope > 0)
+                _settingService.DeleteSetting(g2apayPaymentSettings, x => x.SecretKey, storeScope);
+
             _settingService.SaveSetting(g2apayPaymentSettings, x => x.MerchantEmail, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(g2apayPaymentSettings, x => x.UseSandbox, model.UseSandbox_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(g2apayPaymentSettings, x => x.AdditionalFee, model.AdditionalFee_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(g2apayPaymentSettings, x => x.AdditionalFeePercentage, model.AdditionalFeePercentage_OverrideForStore, storeScope, false);
+
+            if (model.UseSandbox_OverrideForStore || storeScope == 0)
+                _settingService.SaveSetting(g2apayPaymentSettings, x => x.UseSandbox, storeScope, false);
+            else if (storeScope > 0)
+                _settingService.DeleteSetting(g2apayPaymentSettings, x => x.UseSandbox, storeScope);
+
+            if (model.AdditionalFee_OverrideForStore || storeScope == 0)
+                _settingService.SaveSetting(g2apayPaymentSettings, x => x.AdditionalFee, storeScope, false);
+            else if (storeScope > 0)
+                _settingService.DeleteSetting(g2apayPaymentSettings, x => x.AdditionalFee, storeScope);
+
+            if (model.AdditionalFeePercentage_OverrideForStore || storeScope == 0)
+                _settingService.SaveSetting(g2apayPaymentSettings, x => x.AdditionalFeePercentage, storeScope, false);
+            else if (storeScope > 0)
+                _settingService.DeleteSetting(g2apayPaymentSettings, x => x.AdditionalFeePercentage, storeScope);
 
             //now clear settings cache
             _settingService.ClearCache();
