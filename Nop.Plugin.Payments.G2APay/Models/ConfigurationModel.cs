@@ -1,4 +1,5 @@
-﻿using Nop.Web.Framework;
+﻿using System.Web.Mvc;
+using Nop.Web.Framework;
 using Nop.Web.Framework.Mvc;
 
 namespace Nop.Plugin.Payments.G2APay.Models
@@ -7,14 +8,20 @@ namespace Nop.Plugin.Payments.G2APay.Models
     {
         public int ActiveStoreScopeConfiguration { get; set; }
 
+        [NopResourceDisplayName("Plugins.Payments.G2APay.Fields.IpnUrl")]
+        public string IpnUrl { get; set; }
+
+        [AllowHtml]
         [NopResourceDisplayName("Plugins.Payments.G2APay.Fields.ApiHash")]
         public string ApiHash { get; set; }
         public bool ApiHash_OverrideForStore { get; set; }
 
+        [AllowHtml]
         [NopResourceDisplayName("Plugins.Payments.G2APay.Fields.SecretKey")]
         public string SecretKey { get; set; }
         public bool SecretKey_OverrideForStore { get; set; }
 
+        [AllowHtml]
         [NopResourceDisplayName("Plugins.Payments.G2APay.Fields.MerchantEmail")]
         public string MerchantEmail { get; set; }
 

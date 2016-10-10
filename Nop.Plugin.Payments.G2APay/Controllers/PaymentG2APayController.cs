@@ -7,7 +7,6 @@ using System.Text;
 using System.Web.Mvc;
 using Nop.Core;
 using Nop.Core.Domain.Orders;
-using Nop.Core.Domain.Payments;
 using Nop.Plugin.Payments.G2APay.Models;
 using Nop.Services.Configuration;
 using Nop.Services.Localization;
@@ -29,6 +28,7 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
         private readonly IOrderService _orderService;
         private readonly ISettingService _settingService;
         private readonly IStoreService _storeService;
+        private readonly IWebHelper _webHelper;
         private readonly IWorkContext _workContext;
 
         #endregion
@@ -41,6 +41,7 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
             IOrderService orderService,
             ISettingService settingService,
             IStoreService storeService,
+            IWebHelper webHelper,
             IWorkContext workContext)
         {
             this._localizationService = localizationService;
@@ -49,6 +50,7 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
             this._orderService = orderService;
             this._settingService = settingService;
             this._storeService = storeService;
+            this._webHelper = webHelper;
             this._workContext = workContext;
         }
 
@@ -115,6 +117,7 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
 
             var model = new ConfigurationModel
             {
+                IpnUrl = string.Format("{0}Plugins/PaymentG2APay/IPNHandler/{1}", _webHelper.GetStoreLocation(), storeScope),
                 ApiHash = g2apayPaymentSettings.ApiHash,
                 SecretKey = g2apayPaymentSettings.SecretKey,
                 MerchantEmail = g2apayPaymentSettings.MerchantEmail,
