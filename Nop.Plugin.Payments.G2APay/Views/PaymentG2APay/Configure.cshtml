@@ -16,11 +16,15 @@
                 For plugin configuration follow these steps:<br />
                 <br />
                 1. Fill in your G2APay account details below<br />
-                2. Enter Your IPN URI (http://www.yourStore.com/Plugins/PaymentG2APay/IPNHandler/@(Model.ActiveStoreScopeConfiguration)) in section Settings > Merchant on your G2APay account.<br />
-                @if (Model.ActiveStoreScopeConfiguration > 0)
-                {
-                    <em>Note: Your IPN URI will be different depending on the store, just copy it above and replace www.yourStore.com to your host</em>
-                }
+                2. Enter Your IPN URI in section Settings > Merchant on your G2APay account.<br />
+            </td>
+        </tr>
+        <tr>
+            <td class="adminTitle">
+                @Html.NopLabelFor(model => model.IpnUrl):
+            </td>
+            <td class="adminData">
+                @Html.DisplayFor(model => model.IpnUrl)
             </td>
         </tr>
         <tr>

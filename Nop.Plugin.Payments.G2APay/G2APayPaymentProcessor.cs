@@ -439,6 +439,8 @@ namespace Nop.Plugin.Payments.G2APay
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFeePercentage.Hint", "Determines whether to apply a percentage additional fee to the order total. If not enabled, a fixed value is used.");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.APIHash", "API Hash");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.APIHash.Hint", "Specify your G2APay API hash.");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.IpnUrl", "IPN URI");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.IpnUrl.Hint", "Copy this IPN URI to section Settings > Merchant on your G2APay account.");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.MerchantEmail", "Merchant email");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.MerchantEmail.Hint", "Specify your merchant email (G2A account name).");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.SecretKey", "Secret");
@@ -467,6 +469,8 @@ namespace Nop.Plugin.Payments.G2APay
             this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFeePercentage.Hint");
             this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.APIHash");
             this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.APIHash.Hint");
+            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.IpnUrl");
+            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.IpnUrl.Hint");
             this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.MerchantEmail");
             this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.MerchantEmail.Hint");
             this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.SecretKey");
