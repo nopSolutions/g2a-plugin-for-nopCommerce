@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 namespace Nop.Plugin.Payments.G2APay
 {
     /// <summary>
-    /// Represents G2APay payment response
+    /// Represents G2A Pay payment response
     /// </summary>
     public class G2APayPaymentResponse
     {

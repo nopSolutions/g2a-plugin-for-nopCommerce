@@ -77,7 +77,7 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
             order = _orderService.GetOrderByGuid(orderGuid);
             if (order == null)
             {
-                _logger.Error(string.Format("G2APay IPN error: Order with guid {0} is not found", orderGuid));
+                _logger.Error(string.Format("G2A Pay IPN error: Order with guid {0} is not found", orderGuid));
                 return false;
             }
 
@@ -85,7 +85,7 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
             decimal orderTotal;
             if (!decimal.TryParse(form["amount"], out orderTotal) || Math.Round(order.OrderTotal, 2) != Math.Round(orderTotal, 2))
             {
-                _logger.Error("G2APay IPN error: order totals not match");
+                _logger.Error("G2A Pay IPN error: order totals not match");
                 return false;
             }
 
@@ -96,7 +96,7 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
                 .Aggregate(string.Empty, (current, next) => string.Format("{0}{1}", current, next.ToString("x2")));
             if (!hash.Equals(form["hash"]))
             {
-                _logger.Error("G2APay IPN error: hashes not match");
+                _logger.Error("G2A Pay IPN error: hashes not match");
                 return false;
             }
 
@@ -244,7 +244,7 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
                     //do not logging for pending status
                     break;
                 default:
-                    _logger.Error(string.Format("G2APay IPN error: transaction is {0}", form["status"]));
+                    _logger.Error(string.Format("G2A Pay IPN error: transaction is {0}", form["status"]));
                     break;
             }
 

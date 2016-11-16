@@ -21,11 +21,12 @@ using Nop.Services.Logging;
 using Nop.Services.Orders;
 using Nop.Services.Payments;
 using Nop.Services.Seo;
+using Nop.Web.Framework.UI;
 
 namespace Nop.Plugin.Payments.G2APay
 {
     /// <summary>
-    /// G2APay payment processor
+    /// G2A Pay payment processor
     /// </summary>
     public class G2APayPaymentProcessor : BasePlugin, IPaymentMethod
     {
@@ -38,6 +39,7 @@ namespace Nop.Plugin.Payments.G2APay
         private readonly ILocalizationService _localizationService;
         private readonly ILogger _logger;
         private readonly IOrderTotalCalculationService _orderTotalCalculationService;
+        private readonly IPageHeadBuilder _pageHeadBuilder;
         private readonly ISettingService _settingService;
         private readonly IWebHelper _webHelper;
         
@@ -52,6 +54,7 @@ namespace Nop.Plugin.Payments.G2APay
             ILocalizationService localizationService,
             ILogger logger,
             IOrderTotalCalculationService orderTotalCalculationService,
+            IPageHeadBuilder pageHeadBuilder,
             ISettingService settingService, 
             IWebHelper webHelper)
         {
@@ -62,6 +65,7 @@ namespace Nop.Plugin.Payments.G2APay
             this._localizationService = localizationService;
             this._logger = logger;
             this._orderTotalCalculationService = orderTotalCalculationService;
+            this._pageHeadBuilder = pageHeadBuilder;
             this._settingService = settingService;            
             this._webHelper = webHelper;            
         }
@@ -71,7 +75,7 @@ namespace Nop.Plugin.Payments.G2APay
         #region Utilities
 
         /// <summary>
-        /// Gets G2APay payment URL
+        /// Gets G2A Pay payment URL
         /// </summary>
         /// <returns>URL</returns>
         protected string GetG2APayUrl()
@@ -80,9 +84,9 @@ namespace Nop.Plugin.Payments.G2APay
         }
 
         /// <summary>
-        /// Gets G2APay REST API URL
+        /// Gets G2A Pay REST API URL
         /// </summary>
-        /// <param name="settings">G2APay payment settings</param>
+        /// <param name="settings">G2A Pay payment settings</param>
         /// <returns>URL</returns>
         protected string GetG2APayRestUrl(G2APayPaymentSettings settings = null)
         {
@@ -93,7 +97,7 @@ namespace Nop.Plugin.Payments.G2APay
         /// <summary>
         /// Get Authorization header for the request
         /// </summary>
-        /// <param name="settings">G2APay payment settings</param>
+        /// <param name="settings">G2A Pay payment settings</param>
         /// <returns>Value of header</returns>
         protected string GetAuthHeader(G2APayPaymentSettings settings = null)
         {
@@ -209,12 +213,12 @@ namespace Nop.Plugin.Payments.G2APay
                     if (response.Status.Equals("ok", StringComparison.InvariantCultureIgnoreCase))
                         _httpContext.Response.Redirect(string.Format("{0}/index/gateway?token={1}", GetG2APayUrl(), response.Token));
                     else
-                        throw new NopException(string.Format("G2APay transaction error: status is {0}", response.Status));
+                        throw new NopException(string.Format("G2A Pay transaction error: status is {0}", response.Status));
                 }
             }
             catch (Exception ex)
             {
-                _logger.Error("G2APay transaction error", ex);
+                _logger.Error("G2A Pay transaction error", ex);
                 _httpContext.Response.Redirect(storeLocation);
             }            
         }
@@ -311,16 +315,19 @@ namespace Nop.Plugin.Payments.G2APay
                 {
                     var response = JsonConvert.DeserializeObject<G2APayPaymentResponse>(streamReader.ReadToEnd());
                     if (!response.Status.Equals("ok", StringComparison.InvariantCultureIgnoreCase))
-                        throw new NopException(string.Format("G2APay refund error: transaction status is {0}", response.Status));
+                        throw new NopException(string.Format("G2A Pay refund error: transaction status is {0}", response.Status));
 
                     //leaving payment status, we will change it later, upon receiving IPN
                     result.NewPaymentStatus = refundPaymentRequest.Order.PaymentStatus;
                     result.AddError(_localizationService.GetResource("Plugins.Payments.G2APay.Refund"));
+
+                    //change error notification to warning one
+                    _pageHeadBuilder.AddCssFileParts(ResourceLocation.Head, @"~/Plugins/Payments.G2APay/Content/styles.css");
                 }
             }
             catch (WebException ex)
             {
-                var error = "G2APay refund error. ";
+                var error = "G2A Pay refund error. ";
                 using (var streamReader = new StreamReader(ex.Response.GetResponseStream()))
                 {
                     error += streamReader.ReadToEnd();
@@ -438,17 +445,17 @@ namespace Nop.Plugin.Payments.G2APay
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFeePercentage", "Additional fee. Use percentage");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFeePercentage.Hint", "Determines whether to apply a percentage additional fee to the order total. If not enabled, a fixed value is used.");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.APIHash", "API Hash");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.APIHash.Hint", "Specify your G2APay API hash.");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.APIHash.Hint", "Specify your G2A Pay API hash.");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.IpnUrl", "IPN URI");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.IpnUrl.Hint", "Copy this IPN URI to section Settings > Merchant on your G2APay account.");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.IpnUrl.Hint", "Copy this IPN URI to section Settings > Merchant on your G2A Pay account.");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.MerchantEmail", "Merchant email");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.MerchantEmail.Hint", "Specify your merchant email (G2A account name).");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.SecretKey", "Secret");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.SecretKey.Hint", "Specify your G2APay secret.");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.SecretKey.Hint", "Specify your G2A Pay secret.");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.UseSandbox", "Use Sandbox");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.UseSandbox.Hint", "Check to enable sandbox (testing environment).");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.RedirectionTip", "You will be redirected to G2APay site to complete the order.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Refund", "Refund will happen later, after receiving successful IPN by G2APay service.");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.RedirectionTip", "You will be redirected to G2A Pay site to complete the order.");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Refund", "Refund will happen later, after receiving successful IPN by G2A Pay service.");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.SpecialItem", "Additional charges (delivery, payment fee, taxes, discounts, etc)");
 
             base.Install();
