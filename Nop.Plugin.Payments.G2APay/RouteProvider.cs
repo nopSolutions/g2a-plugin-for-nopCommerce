@@ -11,7 +11,7 @@ namespace Nop.Plugin.Payments.G2APay
             //IPN
             routes.MapRoute("Plugin.Payments.G2APay.IPNHandler",
                  "Plugins/PaymentG2APay/IPNHandler/{storeId}",
-                 new { controller = "PaymentG2APay", action = "IPNHandler" },
+                 new { controller = "PaymentG2APay", action = "IPNHandler", storeId = UrlParameter.Optional },
                  new[] { "Nop.Plugin.Payments.G2APay.Controllers" }
             );
         }

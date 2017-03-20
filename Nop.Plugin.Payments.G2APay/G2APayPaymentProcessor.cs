@@ -454,6 +454,7 @@ namespace Nop.Plugin.Payments.G2APay
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.SecretKey.Hint", "Specify your G2A Pay secret.");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.UseSandbox", "Use Sandbox");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.UseSandbox.Hint", "Check to enable sandbox (testing environment).");
+            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.PaymentMethodDescription", "You will be redirected to G2A Pay site to complete the payment");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.RedirectionTip", "You will be redirected to G2A Pay site to complete the order.");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Refund", "Refund will happen later, after receiving successful IPN by G2A Pay service.");
             this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.SpecialItem", "Additional charges (delivery, payment fee, taxes, discounts, etc)");
@@ -484,6 +485,7 @@ namespace Nop.Plugin.Payments.G2APay
             this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.SecretKey.Hint");
             this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.UseSandbox");
             this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.UseSandbox.Hint");
+            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.PaymentMethodDescription");
             this.DeletePluginLocaleResource("Plugins.Payments.G2APay.RedirectionTip");
             this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Refund");
             this.DeletePluginLocaleResource("Plugins.Payments.G2APay.SpecialItem");
@@ -549,6 +551,16 @@ namespace Nop.Plugin.Payments.G2APay
         public bool SkipPaymentInfo
         {
             get { return false; }
+        }
+        
+        /// <summary>
+        /// Gets a payment method description that will be displayed on checkout pages in the public store
+        /// </summary>
+        public string PaymentMethodDescription
+        {
+            //return description of this payment method to be display on "payment method" checkout step. good practice is to make it localizable
+            //for example, for a redirection payment method, description may be like this: "You will be redirected to PayPal site to complete the payment"
+            get { return _localizationService.GetResource("Plugins.Payments.G2APay.PaymentMethodDescription"); }
         }
 
         #endregion

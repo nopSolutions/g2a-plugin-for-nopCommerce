@@ -62,10 +62,10 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
         /// Validate IPN callback
         /// </summary>
         /// <param name="form">Form parameters</param>
-        /// <param name="storeId">Store identifier</param>
+        /// <param name="storeId">Store identifier; pass null to use "all stores" identifier</param>
         /// <param name="order">Order</param>
         /// <returns>true if there are no errors; otherwise false</returns>
-        protected bool ValidateIPN(FormCollection form, int storeId, out Order order)
+        protected bool ValidateIPN(FormCollection form, int? storeId, out Order order)
         {
             //validate order guid
             order = null;
@@ -90,7 +90,7 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
             }
 
             //validate hash
-            var g2apayPaymentSettings = _settingService.LoadSetting<G2APayPaymentSettings>(storeId);
+            var g2apayPaymentSettings = _settingService.LoadSetting<G2APayPaymentSettings>(storeId ?? 0);
             var stringToHash = string.Format("{0}{1}{2}{3}", form["transactionId"], form["userOrderId"], form["amount"], g2apayPaymentSettings.SecretKey);
             var hash = new SHA256Managed().ComputeHash(Encoding.Default.GetBytes(stringToHash))
                 .Aggregate(string.Empty, (current, next) => string.Format("{0}{1}", current, next.ToString("x2")));
@@ -117,7 +117,8 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
 
             var model = new ConfigurationModel
             {
-                IpnUrl = string.Format("{0}Plugins/PaymentG2APay/IPNHandler/{1}", _webHelper.GetStoreLocation(), storeScope),
+                IpnUrl = string.Format("{0}Plugins/PaymentG2APay/IPNHandler/{1}",
+                    _webHelper.GetStoreLocation(), storeScope > 0 ? storeScope.ToString() : string.Empty),
                 ApiHash = g2apayPaymentSettings.ApiHash,
                 SecretKey = g2apayPaymentSettings.SecretKey,
                 MerchantEmail = g2apayPaymentSettings.MerchantEmail,
@@ -136,7 +137,7 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
                 model.AdditionalFeePercentage_OverrideForStore = _settingService.SettingExists(g2apayPaymentSettings, x => x.AdditionalFeePercentage, storeScope);
             }
 
-            return View("~/Plugins/Payments.G2APay/Views/PaymentG2APay/Configure.cshtml", model);
+            return View("~/Plugins/Payments.G2APay/Views/Configure.cshtml", model);
         }
 
         [HttpPost]
@@ -180,7 +181,7 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
         [ChildActionOnly]
         public ActionResult PaymentInfo()
         {
-            return View("~/Plugins/Payments.G2APay/Views/PaymentG2APay/PaymentInfo.cshtml");
+            return View("~/Plugins/Payments.G2APay/Views/PaymentInfo.cshtml");
         }
 
         [NonAction]
@@ -196,7 +197,7 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
         }
 
         [ValidateInput(false)]
-        public ActionResult IPNHandler(FormCollection form, int storeId)
+        public ActionResult IPNHandler(FormCollection form, int? storeId)
         {
             Order order;
             if (!ValidateIPN(form, storeId, out order))
