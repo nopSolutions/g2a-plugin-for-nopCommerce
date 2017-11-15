@@ -1,0 +1,11 @@
+﻿{
+  "Group": "Payment methods",
+  "FriendlyName": "G2A Pay",
+  "SystemName": "Payments.G2APay",
+  "Version": "1.30",
+  "SupportedVersions": [ "4.00" ],
+  "Author": "nopCommerce team",
+  "DisplayOrder": 1,
+  "FileName": "Nop.Plugin.Payments.G2APay.dll",
+  "Description": "This plugin allows paying with G2A Pay"
+}

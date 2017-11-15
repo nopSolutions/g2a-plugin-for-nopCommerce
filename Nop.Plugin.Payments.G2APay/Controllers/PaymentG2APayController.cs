@@ -1,10 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
-using System.Web.Mvc;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Nop.Core;
 using Nop.Core.Domain.Orders;
 using Nop.Plugin.Payments.G2APay.Models;
@@ -12,9 +12,11 @@ using Nop.Services.Configuration;
 using Nop.Services.Localization;
 using Nop.Services.Logging;
 using Nop.Services.Orders;
-using Nop.Services.Payments;
+using Nop.Services.Security;
 using Nop.Services.Stores;
+using Nop.Web.Framework;
 using Nop.Web.Framework.Controllers;
+using Nop.Web.Framework.Mvc.Filters;
 
 namespace Nop.Plugin.Payments.G2APay.Controllers
 {
@@ -30,6 +32,7 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
         private readonly IStoreService _storeService;
         private readonly IWebHelper _webHelper;
         private readonly IWorkContext _workContext;
+        private readonly IPermissionService _permissionService;
 
         #endregion
 
@@ -42,7 +45,8 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
             ISettingService settingService,
             IStoreService storeService,
             IWebHelper webHelper,
-            IWorkContext workContext)
+            IWorkContext workContext,
+            IPermissionService permissionService)
         {
             this._localizationService = localizationService;
             this._logger = logger;
@@ -52,6 +56,7 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
             this._storeService = storeService;
             this._webHelper = webHelper;
             this._workContext = workContext;
+            this._permissionService = permissionService;
         }
 
         #endregion
@@ -65,35 +70,33 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
         /// <param name="storeId">Store identifier; pass null to use "all stores" identifier</param>
         /// <param name="order">Order</param>
         /// <returns>true if there are no errors; otherwise false</returns>
-        protected bool ValidateIPN(FormCollection form, int? storeId, out Order order)
+        protected bool ValidateIPN(IFormCollection form, int? storeId, out Order order)
         {
             //validate order guid
             order = null;
-            Guid orderGuid;
-            if (!Guid.TryParse(form["userOrderId"], out orderGuid))
+            if (!Guid.TryParse(form["userOrderId"], out Guid orderGuid))
                 return false;
 
             //check that order exists
             order = _orderService.GetOrderByGuid(orderGuid);
             if (order == null)
             {
-                _logger.Error(string.Format("G2A Pay IPN error: Order with guid {0} is not found", orderGuid));
+                _logger.Error($"G2A Pay IPN error: Order with guid {orderGuid} is not found");
                 return false;
             }
 
             //validate order total
-            decimal orderTotal;
-            if (!decimal.TryParse(form["amount"], out orderTotal) || Math.Round(order.OrderTotal, 2) != Math.Round(orderTotal, 2))
+            if (!decimal.TryParse(form["amount"], out decimal orderTotal) || Math.Round(order.OrderTotal, 2) != Math.Round(orderTotal, 2))
             {
                 _logger.Error("G2A Pay IPN error: order totals not match");
                 return false;
             }
 
             //validate hash
-            var g2apayPaymentSettings = _settingService.LoadSetting<G2APayPaymentSettings>(storeId ?? 0);
-            var stringToHash = string.Format("{0}{1}{2}{3}", form["transactionId"], form["userOrderId"], form["amount"], g2apayPaymentSettings.SecretKey);
+            var g2APayPaymentSettings = _settingService.LoadSetting<G2APayPaymentSettings>(storeId ?? 0);
+            var stringToHash = $"{form["transactionId"]}{form["userOrderId"]}{form["amount"]}{g2APayPaymentSettings.SecretKey}";
             var hash = new SHA256Managed().ComputeHash(Encoding.Default.GetBytes(stringToHash))
-                .Aggregate(string.Empty, (current, next) => string.Format("{0}{1}", current, next.ToString("x2")));
+                .Aggregate(string.Empty, (current, next) => $"{current}{next:x2}");
             if (!hash.Equals(form["hash"]))
             {
                 _logger.Error("G2A Pay IPN error: hashes not match");
@@ -107,68 +110,73 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
 
         #region Methods
 
-        [AdminAuthorize]
-        [ChildActionOnly]
-        public ActionResult Configure()
+        [AuthorizeAdmin]
+        [Area(AreaNames.Admin)]
+        public IActionResult Configure()
         {
+            if (!_permissionService.Authorize(StandardPermissionProvider.ManagePaymentMethods))
+                return AccessDeniedView();
+
             //load settings for a chosen store scope
             var storeScope = GetActiveStoreScopeConfiguration(_storeService, _workContext);
-            var g2apayPaymentSettings = _settingService.LoadSetting<G2APayPaymentSettings>(storeScope);
+            var g2APayPaymentSettings = _settingService.LoadSetting<G2APayPaymentSettings>(storeScope);
 
             var model = new ConfigurationModel
             {
-                IpnUrl = string.Format("{0}Plugins/PaymentG2APay/IPNHandler/{1}",
-                    _webHelper.GetStoreLocation(), storeScope > 0 ? storeScope.ToString() : string.Empty),
-                ApiHash = g2apayPaymentSettings.ApiHash,
-                SecretKey = g2apayPaymentSettings.SecretKey,
-                MerchantEmail = g2apayPaymentSettings.MerchantEmail,
-                UseSandbox = g2apayPaymentSettings.UseSandbox,
-                AdditionalFee = g2apayPaymentSettings.AdditionalFee,
-                AdditionalFeePercentage = g2apayPaymentSettings.AdditionalFeePercentage,
+                IpnUrl = $"{_webHelper.GetStoreLocation()}Plugins/PaymentG2APay/IPNHandler/{(storeScope > 0 ? storeScope.ToString() : string.Empty)}",
+                ApiHash = g2APayPaymentSettings.ApiHash,
+                SecretKey = g2APayPaymentSettings.SecretKey,
+                MerchantEmail = g2APayPaymentSettings.MerchantEmail,
+                UseSandbox = g2APayPaymentSettings.UseSandbox,
+                AdditionalFee = g2APayPaymentSettings.AdditionalFee,
+                AdditionalFeePercentage = g2APayPaymentSettings.AdditionalFeePercentage,
                 ActiveStoreScopeConfiguration = storeScope
             };
 
             if (storeScope > 0)
             {
-                model.ApiHash_OverrideForStore = _settingService.SettingExists(g2apayPaymentSettings, x => x.ApiHash, storeScope);
-                model.SecretKey_OverrideForStore = _settingService.SettingExists(g2apayPaymentSettings, x => x.SecretKey, storeScope);
-                model.UseSandbox_OverrideForStore = _settingService.SettingExists(g2apayPaymentSettings, x => x.UseSandbox, storeScope);
-                model.AdditionalFee_OverrideForStore = _settingService.SettingExists(g2apayPaymentSettings, x => x.AdditionalFee, storeScope);
-                model.AdditionalFeePercentage_OverrideForStore = _settingService.SettingExists(g2apayPaymentSettings, x => x.AdditionalFeePercentage, storeScope);
+                model.ApiHash_OverrideForStore = _settingService.SettingExists(g2APayPaymentSettings, x => x.ApiHash, storeScope);
+                model.SecretKey_OverrideForStore = _settingService.SettingExists(g2APayPaymentSettings, x => x.SecretKey, storeScope);
+                model.UseSandbox_OverrideForStore = _settingService.SettingExists(g2APayPaymentSettings, x => x.UseSandbox, storeScope);
+                model.AdditionalFee_OverrideForStore = _settingService.SettingExists(g2APayPaymentSettings, x => x.AdditionalFee, storeScope);
+                model.AdditionalFeePercentage_OverrideForStore = _settingService.SettingExists(g2APayPaymentSettings, x => x.AdditionalFeePercentage, storeScope);
             }
 
             return View("~/Plugins/Payments.G2APay/Views/Configure.cshtml", model);
         }
 
         [HttpPost]
-        [AdminAuthorize]
-        [ChildActionOnly]
-        public ActionResult Configure(ConfigurationModel model)
+        [AuthorizeAdmin]
+        [Area(AreaNames.Admin)]
+        public IActionResult Configure(ConfigurationModel model)
         {
+            if (!_permissionService.Authorize(StandardPermissionProvider.ManagePaymentMethods))
+                return AccessDeniedView();
+
             if (!ModelState.IsValid)
                 return Configure();
 
             //load settings for a chosen store scope
             var storeScope = GetActiveStoreScopeConfiguration(_storeService, _workContext);
-            var g2apayPaymentSettings = _settingService.LoadSetting<G2APayPaymentSettings>(storeScope);
+            var g2APayPaymentSettings = _settingService.LoadSetting<G2APayPaymentSettings>(storeScope);
 
             //save settings
-            g2apayPaymentSettings.ApiHash = model.ApiHash;
-            g2apayPaymentSettings.SecretKey = model.SecretKey;
-            g2apayPaymentSettings.MerchantEmail = model.MerchantEmail;
-            g2apayPaymentSettings.UseSandbox = model.UseSandbox;
-            g2apayPaymentSettings.AdditionalFee = model.AdditionalFee;
-            g2apayPaymentSettings.AdditionalFeePercentage = model.AdditionalFeePercentage;
+            g2APayPaymentSettings.ApiHash = model.ApiHash;
+            g2APayPaymentSettings.SecretKey = model.SecretKey;
+            g2APayPaymentSettings.MerchantEmail = model.MerchantEmail;
+            g2APayPaymentSettings.UseSandbox = model.UseSandbox;
+            g2APayPaymentSettings.AdditionalFee = model.AdditionalFee;
+            g2APayPaymentSettings.AdditionalFeePercentage = model.AdditionalFeePercentage;
 
             /* We do not clear cache after each setting update.
              * This behavior can increase performance because cached settings will not be cleared 
              * and loaded from database after each update */
-            _settingService.SaveSettingOverridablePerStore(g2apayPaymentSettings, x => x.ApiHash, model.ApiHash_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(g2apayPaymentSettings, x => x.SecretKey, model.SecretKey_OverrideForStore, storeScope, false);
-            _settingService.SaveSetting(g2apayPaymentSettings, x => x.MerchantEmail, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(g2apayPaymentSettings, x => x.UseSandbox, model.UseSandbox_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(g2apayPaymentSettings, x => x.AdditionalFee, model.AdditionalFee_OverrideForStore, storeScope, false);
-            _settingService.SaveSettingOverridablePerStore(g2apayPaymentSettings, x => x.AdditionalFeePercentage, model.AdditionalFeePercentage_OverrideForStore, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(g2APayPaymentSettings, x => x.ApiHash, model.ApiHash_OverrideForStore, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(g2APayPaymentSettings, x => x.SecretKey, model.SecretKey_OverrideForStore, storeScope, false);
+            _settingService.SaveSetting(g2APayPaymentSettings, x => x.MerchantEmail, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(g2APayPaymentSettings, x => x.UseSandbox, model.UseSandbox_OverrideForStore, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(g2APayPaymentSettings, x => x.AdditionalFee, model.AdditionalFee_OverrideForStore, storeScope, false);
+            _settingService.SaveSettingOverridablePerStore(g2APayPaymentSettings, x => x.AdditionalFeePercentage, model.AdditionalFeePercentage_OverrideForStore, storeScope, false);
 
             //now clear settings cache
             _settingService.ClearCache();
@@ -177,35 +185,17 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
 
             return Configure();
         }
-
-        [ChildActionOnly]
-        public ActionResult PaymentInfo()
+        
+        public IActionResult IPNHandler(int? storeId)
         {
-            return View("~/Plugins/Payments.G2APay/Views/PaymentInfo.cshtml");
-        }
+            var form = Request.Form;
 
-        [NonAction]
-        public override IList<string> ValidatePaymentForm(FormCollection form)
-        {
-            return new List<string>();
-        }
-
-        [NonAction]
-        public override ProcessPaymentRequest GetPaymentInfo(FormCollection form)
-        {
-            return new ProcessPaymentRequest();
-        }
-
-        [ValidateInput(false)]
-        public ActionResult IPNHandler(FormCollection form, int? storeId)
-        {
-            Order order;
-            if (!ValidateIPN(form, storeId, out order))
-                return new HttpStatusCodeResult(HttpStatusCode.OK);
+            if (!ValidateIPN(form, storeId, out Order order))
+                return new StatusCodeResult((int)HttpStatusCode.OK);
 
             //order note
             var note = new StringBuilder();
-            foreach (string key in form.Keys)
+            foreach (var key in form.Keys)
             {
                 note.AppendFormat("{0}: {1}{2}", key, form[key], Environment.NewLine);
             }
@@ -219,7 +209,7 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
             _orderService.UpdateOrder(order);
 
             //change order status
-            switch (form["status"].ToLowerInvariant())
+            switch (form["status"].ToString().ToLowerInvariant())
             {
                 case "complete":
                     //paid order
@@ -245,11 +235,11 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
                     //do not logging for pending status
                     break;
                 default:
-                    _logger.Error(string.Format("G2A Pay IPN error: transaction is {0}", form["status"]));
+                    _logger.Error($"G2A Pay IPN error: transaction is {form["status"]}");
                     break;
             }
 
-            return new HttpStatusCodeResult(HttpStatusCode.OK);
+            return new StatusCodeResult((int)HttpStatusCode.OK);
         }
 
         #endregion

@@ -6,8 +6,8 @@ using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
-using System.Web;
-using System.Web.Routing;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.WebUtilities;
 using Newtonsoft.Json;
 using Nop.Core;
 using Nop.Core.Domain.Directory;
@@ -33,8 +33,8 @@ namespace Nop.Plugin.Payments.G2APay
         #region Fields
 
         private readonly CurrencySettings _currencySettings;
-        private readonly G2APayPaymentSettings _g2apayPaymentSettings;
-        private readonly HttpContextBase _httpContext;
+        private readonly G2APayPaymentSettings _g2APayPaymentSettings;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ICurrencyService _currencyService;
         private readonly ILocalizationService _localizationService;
         private readonly ILogger _logger;
@@ -48,8 +48,8 @@ namespace Nop.Plugin.Payments.G2APay
         #region Ctor
 
         public G2APayPaymentProcessor(CurrencySettings currencySettings,
-            G2APayPaymentSettings g2apayPaymentSettings,
-            HttpContextBase httpContext,
+            G2APayPaymentSettings g2APayPaymentSettings,
+            IHttpContextAccessor httpContextAccessor,
             ICurrencyService currencyService,
             ILocalizationService localizationService,
             ILogger logger,
@@ -59,8 +59,8 @@ namespace Nop.Plugin.Payments.G2APay
             IWebHelper webHelper)
         {
             this._currencySettings = currencySettings;
-            this._g2apayPaymentSettings = g2apayPaymentSettings;
-            this._httpContext = httpContext;
+            this._g2APayPaymentSettings = g2APayPaymentSettings;
+            this._httpContextAccessor = httpContextAccessor;
             this._currencyService = currencyService;
             this._localizationService = localizationService;
             this._logger = logger;
@@ -80,7 +80,7 @@ namespace Nop.Plugin.Payments.G2APay
         /// <returns>URL</returns>
         protected string GetG2APayUrl()
         {
-            return _g2apayPaymentSettings.UseSandbox ? "https://checkout.test.pay.g2a.com" : "https://checkout.pay.g2a.com";
+            return _g2APayPaymentSettings.UseSandbox ? "https://checkout.test.pay.g2a.com" : "https://checkout.pay.g2a.com";
         }
 
         /// <summary>
@@ -90,8 +90,8 @@ namespace Nop.Plugin.Payments.G2APay
         /// <returns>URL</returns>
         protected string GetG2APayRestUrl(G2APayPaymentSettings settings = null)
         {
-            var g2apayPaymentSettings = settings ?? _g2apayPaymentSettings;
-            return g2apayPaymentSettings.UseSandbox ? "https://www.test.pay.g2a.com" : "https://pay.g2a.com";
+            var g2APayPaymentSettings = settings ?? _g2APayPaymentSettings;
+            return g2APayPaymentSettings.UseSandbox ? "https://www.test.pay.g2a.com" : "https://pay.g2a.com";
         }
 
         /// <summary>
@@ -101,10 +101,10 @@ namespace Nop.Plugin.Payments.G2APay
         /// <returns>Value of header</returns>
         protected string GetAuthHeader(G2APayPaymentSettings settings = null)
         {
-            var g2apayPaymentSettings = settings ?? _g2apayPaymentSettings;
-            var stringToHash = string.Format("{0}{1}{2}", g2apayPaymentSettings.ApiHash, g2apayPaymentSettings.MerchantEmail, g2apayPaymentSettings.SecretKey);
+            var g2APayPaymentSettings = settings ?? _g2APayPaymentSettings;
+            var stringToHash = $"{g2APayPaymentSettings.ApiHash}{g2APayPaymentSettings.MerchantEmail}{g2APayPaymentSettings.SecretKey}";
 
-            return string.Format("{0};{1}", g2apayPaymentSettings.ApiHash, GetSHA256Hash(stringToHash));
+            return $"{g2APayPaymentSettings.ApiHash};{GetSHA256Hash(stringToHash)}";
         }
 
         /// <summary>
@@ -115,7 +115,7 @@ namespace Nop.Plugin.Payments.G2APay
         protected string GetSHA256Hash(string stringToHash)
         {
            return new SHA256Managed().ComputeHash(Encoding.Default.GetBytes(stringToHash))
-                .Aggregate(string.Empty, (current, next) => string.Format("{0}{1}", current, next.ToString("x2")));
+                .Aggregate(string.Empty, (current, next) => $"{current}{next:x2}");
         }
 
         #endregion
@@ -147,22 +147,18 @@ namespace Nop.Plugin.Payments.G2APay
             var storeLocation = _webHelper.GetStoreLocation();
 
             //hash
-            var stringToHash = string.Format("{0}{1}{2}{3}",
-                postProcessPaymentRequest.Order.OrderGuid,
-                postProcessPaymentRequest.Order.OrderTotal.ToString("0.00", CultureInfo.InvariantCulture),
-                currency.CurrencyCode,
-                _g2apayPaymentSettings.SecretKey);
+            var stringToHash = $"{postProcessPaymentRequest.Order.OrderGuid}{postProcessPaymentRequest.Order.OrderTotal.ToString("0.00", CultureInfo.InvariantCulture)}{currency.CurrencyCode}{_g2APayPaymentSettings.SecretKey}";
 
             //post parameters
-            var parameters = HttpUtility.ParseQueryString(string.Empty);
-            parameters.Add("api_hash", _g2apayPaymentSettings.ApiHash);
+            var parameters = QueryHelpers.ParseQuery(string.Empty);
+            parameters.Add("api_hash", _g2APayPaymentSettings.ApiHash);
             parameters.Add("hash", GetSHA256Hash(stringToHash));
             parameters.Add("order_id", postProcessPaymentRequest.Order.OrderGuid.ToString());
             parameters.Add("amount", postProcessPaymentRequest.Order.OrderTotal.ToString("0.00", CultureInfo.InvariantCulture));
             parameters.Add("currency", currency.CurrencyCode);
-            parameters.Add("description", string.Format("Order #{0}", postProcessPaymentRequest.Order.Id));
-            parameters.Add("url_ok", string.Format("{0}checkout/completed/{1}", storeLocation, postProcessPaymentRequest.Order.Id));
-            parameters.Add("url_failure", string.Format("{0}orderdetails/{1}", storeLocation, postProcessPaymentRequest.Order.Id));
+            parameters.Add("description", $"Order #{postProcessPaymentRequest.Order.Id}");
+            parameters.Add("url_ok", $"{storeLocation}checkout/completed/{postProcessPaymentRequest.Order.Id}");
+            parameters.Add("url_failure", $"{storeLocation}orderdetails/{postProcessPaymentRequest.Order.Id}");
 
             //items parameters
             var items = postProcessPaymentRequest.Order.OrderItems.Select(item =>
@@ -174,7 +170,7 @@ namespace Nop.Plugin.Payments.G2APay
                     Price = item.UnitPriceInclTax.ToString("0.00", CultureInfo.InvariantCulture),
                     Quantity = item.Quantity,
                     Amount = item.PriceInclTax.ToString("0.00", CultureInfo.InvariantCulture),
-                    Url = string.Format("{0}{1}", storeLocation, item.Product.GetSeName())
+                    Url = $"{storeLocation}{item.Product.GetSeName()}"
                 }).ToList();
             //add special item for the shipping rate, payment fee, tax, etc
             var difference = postProcessPaymentRequest.Order.OrderTotal - postProcessPaymentRequest.Order.OrderItems.Sum(item => item.PriceInclTax);
@@ -191,10 +187,16 @@ namespace Nop.Plugin.Payments.G2APay
                 });
             parameters.Add("items", JsonConvert.SerializeObject(items.ToArray()));
 
-            var postData = Encoding.Default.GetBytes(parameters.ToString());
+            var post = new StringBuilder();
+            foreach (var item in parameters)
+            {
+                post.AppendFormat("&{0}={1}", item.Key, WebUtility.UrlEncode(item.Value));
+            }
+
+            var postData = Encoding.Default.GetBytes(post.ToString());
 
             //post
-            var request = (HttpWebRequest)WebRequest.Create(string.Format("{0}/index/createQuote", GetG2APayUrl()));
+            var request = (HttpWebRequest)WebRequest.Create($"{GetG2APayUrl()}/index/createQuote");
             request.Method = "POST";
             request.ContentType = "application/x-www-form-urlencoded";
             request.ContentLength = postData.Length;
@@ -211,15 +213,15 @@ namespace Nop.Plugin.Payments.G2APay
                 {
                     var response = JsonConvert.DeserializeObject<G2APayPaymentResponse>(streamReader.ReadToEnd());
                     if (response.Status.Equals("ok", StringComparison.InvariantCultureIgnoreCase))
-                        _httpContext.Response.Redirect(string.Format("{0}/index/gateway?token={1}", GetG2APayUrl(), response.Token));
+                        _httpContextAccessor.HttpContext.Response.Redirect($"{GetG2APayUrl()}/index/gateway?token={response.Token}");
                     else
-                        throw new NopException(string.Format("G2A Pay transaction error: status is {0}", response.Status));
+                        throw new NopException($"G2A Pay transaction error: status is {response.Status}");
                 }
             }
             catch (Exception ex)
             {
                 _logger.Error("G2A Pay transaction error", ex);
-                _httpContext.Response.Redirect(storeLocation);
+                _httpContextAccessor.HttpContext.Response.Redirect(storeLocation);
             }            
         }
 
@@ -244,7 +246,7 @@ namespace Nop.Plugin.Payments.G2APay
         public decimal GetAdditionalHandlingFee(IList<ShoppingCartItem> cart)
         {
             var result = this.CalculateAdditionalFee(_orderTotalCalculationService, cart,
-                _g2apayPaymentSettings.AdditionalFee, _g2apayPaymentSettings.AdditionalFeePercentage);
+                _g2APayPaymentSettings.AdditionalFee, _g2APayPaymentSettings.AdditionalFeePercentage);
 
             return result;
         }
@@ -279,15 +281,10 @@ namespace Nop.Plugin.Payments.G2APay
             var g2apayPaymentSettings = _settingService.LoadSetting<G2APayPaymentSettings>(refundPaymentRequest.Order.StoreId);
 
             //hash
-            var stringToHash = string.Format("{0}{1}{2}{3}{4}",
-                refundPaymentRequest.Order.CaptureTransactionId,
-                refundPaymentRequest.Order.OrderGuid,
-                refundPaymentRequest.Order.OrderTotal.ToString("0.00", CultureInfo.InvariantCulture),
-                refundPaymentRequest.AmountToRefund.ToString("0.00", CultureInfo.InvariantCulture),
-                g2apayPaymentSettings.SecretKey);
+            var stringToHash = $"{refundPaymentRequest.Order.CaptureTransactionId}{refundPaymentRequest.Order.OrderGuid}{refundPaymentRequest.Order.OrderTotal.ToString("0.00", CultureInfo.InvariantCulture)}{refundPaymentRequest.AmountToRefund.ToString("0.00", CultureInfo.InvariantCulture)}{g2apayPaymentSettings.SecretKey}";
 
             //post parameters
-            var parameters = HttpUtility.ParseQueryString(string.Empty);
+            var parameters = QueryHelpers.ParseQuery(string.Empty);
             parameters.Add("action", "refund");
             parameters.Add("order_id", refundPaymentRequest.Order.OrderGuid.ToString());
             parameters.Add("amount", refundPaymentRequest.AmountToRefund.ToString("0.00", CultureInfo.InvariantCulture));
@@ -297,8 +294,7 @@ namespace Nop.Plugin.Payments.G2APay
             var postData = Encoding.Default.GetBytes(parameters.ToString());
 
             //post
-            var request = (HttpWebRequest)WebRequest.Create(string.Format("{0}/rest/transactions/{1}",
-                GetG2APayRestUrl(g2apayPaymentSettings), refundPaymentRequest.Order.CaptureTransactionId));
+            var request = (HttpWebRequest)WebRequest.Create($"{GetG2APayRestUrl(g2apayPaymentSettings)}/rest/transactions/{refundPaymentRequest.Order.CaptureTransactionId}");
             request.Method = "PUT";
             request.ContentType = "application/x-www-form-urlencoded";
             request.ContentLength = postData.Length;
@@ -315,14 +311,14 @@ namespace Nop.Plugin.Payments.G2APay
                 {
                     var response = JsonConvert.DeserializeObject<G2APayPaymentResponse>(streamReader.ReadToEnd());
                     if (!response.Status.Equals("ok", StringComparison.InvariantCultureIgnoreCase))
-                        throw new NopException(string.Format("G2A Pay refund error: transaction status is {0}", response.Status));
+                        throw new NopException($"G2A Pay refund error: transaction status is {response.Status}");
 
                     //leaving payment status, we will change it later, upon receiving IPN
                     result.NewPaymentStatus = refundPaymentRequest.Order.PaymentStatus;
                     result.AddError(_localizationService.GetResource("Plugins.Payments.G2APay.Refund"));
 
                     //change error notification to warning one
-                    _pageHeadBuilder.AddCssFileParts(ResourceLocation.Head, @"~/Plugins/Payments.G2APay/Content/styles.css");
+                    _pageHeadBuilder.AddCssFileParts(ResourceLocation.Head, @"~/Plugins/Payments.G2APay/Content/styles.css", string.Empty);
                 }
             }
             catch (WebException ex)
@@ -383,7 +379,7 @@ namespace Nop.Plugin.Payments.G2APay
         public bool CanRePostProcessPayment(Order order)
         {
             if (order == null)
-                throw new ArgumentNullException("order");
+                throw new ArgumentNullException(nameof(order));
             
             //let's ensure that at least 5 seconds passed after order is placed
             //P.S. there's no any particular reason for that. we just do it
@@ -393,30 +389,24 @@ namespace Nop.Plugin.Payments.G2APay
             return true;
         }
 
-        /// <summary>
-        /// Gets a route for provider configuration
-        /// </summary>
-        /// <param name="actionName">Action name</param>
-        /// <param name="controllerName">Controller name</param>
-        /// <param name="routeValues">Route values</param>
-        public void GetConfigurationRoute(out string actionName, out string controllerName, out RouteValueDictionary routeValues)
+        public override string GetConfigurationPageUrl()
         {
-            actionName = "Configure";
-            controllerName = "PaymentG2APay";
-            routeValues = new RouteValueDictionary { { "Namespaces", "Nop.Plugin.Payments.G2APay.Controllers" }, { "area", null } };
+            return $"{_webHelper.GetStoreLocation()}Admin/PaymentG2APay/Configure";
         }
 
-        /// <summary>
-        /// Gets a route for payment info
-        /// </summary>
-        /// <param name="actionName">Action name</param>
-        /// <param name="controllerName">Controller name</param>
-        /// <param name="routeValues">Route values</param>
-        public void GetPaymentInfoRoute(out string actionName, out string controllerName, out RouteValueDictionary routeValues)
+        public void GetPublicViewComponent(out string viewComponentName)
         {
-            actionName = "PaymentInfo";
-            controllerName = "PaymentG2APay";
-            routeValues = new RouteValueDictionary { { "Namespaces", "Nop.Plugin.Payments.G2APay.Controllers" }, { "area", null } };
+            viewComponentName = "PaymentG2APay";
+        }
+
+        public IList<string> ValidatePaymentForm(IFormCollection form)
+        {
+            return new List<string>();
+        }
+
+        public ProcessPaymentRequest GetPaymentInfo(IFormCollection form)
+        {
+            return new ProcessPaymentRequest();
         }
 
         /// <summary>

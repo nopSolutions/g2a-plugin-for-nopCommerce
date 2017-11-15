@@ -1,19 +1,17 @@
-﻿using System.Web.Mvc;
-using System.Web.Routing;
-using Nop.Web.Framework.Mvc.Routes;
+﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Routing;
+using Nop.Web.Framework.Mvc.Routing;
 
 namespace Nop.Plugin.Payments.G2APay
 {
     public partial class RouteProvider : IRouteProvider
     {
-        public void RegisterRoutes(RouteCollection routes)
+        public void RegisterRoutes(IRouteBuilder routeBuilder)
         {
             //IPN
-            routes.MapRoute("Plugin.Payments.G2APay.IPNHandler",
-                 "Plugins/PaymentG2APay/IPNHandler/{storeId}",
-                 new { controller = "PaymentG2APay", action = "IPNHandler", storeId = UrlParameter.Optional },
-                 new[] { "Nop.Plugin.Payments.G2APay.Controllers" }
-            );
+            routeBuilder.MapRoute("Plugin.Payments.G2APay.IPNHandler",
+                 "Plugins/PaymentG2APay/IPNHandler/{storeId?}",
+                 new { controller = "PaymentG2APay", action = "IPNHandler"});
         }
 
         public int Priority
