@@ -186,9 +186,9 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
             return Configure();
         }
         
-        public IActionResult IPNHandler(int? storeId)
+        public IActionResult IPNHandler(int? storeId, IpnModel model)
         {
-            var form = Request.Form;
+            var form = model.Form;
 
             if (!ValidateIPN(form, storeId, out Order order))
                 return new StatusCodeResult((int)HttpStatusCode.OK);
