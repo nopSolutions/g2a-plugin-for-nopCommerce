@@ -13,7 +13,6 @@ using Nop.Services.Localization;
 using Nop.Services.Logging;
 using Nop.Services.Orders;
 using Nop.Services.Security;
-using Nop.Services.Stores;
 using Nop.Web.Framework;
 using Nop.Web.Framework.Controllers;
 using Nop.Web.Framework.Mvc.Filters;
@@ -29,9 +28,8 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
         private readonly IOrderProcessingService _orderProcessingService;
         private readonly IOrderService _orderService;
         private readonly ISettingService _settingService;
-        private readonly IStoreService _storeService;
         private readonly IWebHelper _webHelper;
-        private readonly IWorkContext _workContext;
+        private readonly IStoreContext _storeContext;
         private readonly IPermissionService _permissionService;
 
         #endregion
@@ -43,9 +41,8 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
             IOrderProcessingService orderProcessingService,
             IOrderService orderService,
             ISettingService settingService,
-            IStoreService storeService,
             IWebHelper webHelper,
-            IWorkContext workContext,
+            IStoreContext storeContext,
             IPermissionService permissionService)
         {
             this._localizationService = localizationService;
@@ -53,9 +50,8 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
             this._orderProcessingService = orderProcessingService;
             this._orderService = orderService;
             this._settingService = settingService;
-            this._storeService = storeService;
             this._webHelper = webHelper;
-            this._workContext = workContext;
+            this._storeContext = storeContext;
             this._permissionService = permissionService;
         }
 
@@ -118,7 +114,7 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
                 return AccessDeniedView();
 
             //load settings for a chosen store scope
-            var storeScope = GetActiveStoreScopeConfiguration(_storeService, _workContext);
+            var storeScope = _storeContext.ActiveStoreScopeConfiguration;
             var g2APayPaymentSettings = _settingService.LoadSetting<G2APayPaymentSettings>(storeScope);
 
             var model = new ConfigurationModel
@@ -157,7 +153,7 @@ namespace Nop.Plugin.Payments.G2APay.Controllers
                 return Configure();
 
             //load settings for a chosen store scope
-            var storeScope = GetActiveStoreScopeConfiguration(_storeService, _workContext);
+            var storeScope = _storeContext.ActiveStoreScopeConfiguration;
             var g2APayPaymentSettings = _settingService.LoadSetting<G2APayPaymentSettings>(storeScope);
 
             //save settings

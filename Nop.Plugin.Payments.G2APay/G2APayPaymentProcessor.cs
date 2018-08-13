@@ -18,7 +18,6 @@ using Nop.Services.Configuration;
 using Nop.Services.Directory;
 using Nop.Services.Localization;
 using Nop.Services.Logging;
-using Nop.Services.Orders;
 using Nop.Services.Payments;
 using Nop.Services.Seo;
 using Nop.Web.Framework.UI;
@@ -38,9 +37,10 @@ namespace Nop.Plugin.Payments.G2APay
         private readonly ICurrencyService _currencyService;
         private readonly ILocalizationService _localizationService;
         private readonly ILogger _logger;
-        private readonly IOrderTotalCalculationService _orderTotalCalculationService;
         private readonly IPageHeadBuilder _pageHeadBuilder;
         private readonly ISettingService _settingService;
+        private readonly IPaymentService _paymentService;
+        private readonly IUrlRecordService _urlRecordService;
         private readonly IWebHelper _webHelper;
         
         #endregion
@@ -53,9 +53,10 @@ namespace Nop.Plugin.Payments.G2APay
             ICurrencyService currencyService,
             ILocalizationService localizationService,
             ILogger logger,
-            IOrderTotalCalculationService orderTotalCalculationService,
             IPageHeadBuilder pageHeadBuilder,
-            ISettingService settingService, 
+            ISettingService settingService,
+            IPaymentService paymentService,
+            IUrlRecordService urlRecordService,
             IWebHelper webHelper)
         {
             this._currencySettings = currencySettings;
@@ -64,10 +65,11 @@ namespace Nop.Plugin.Payments.G2APay
             this._currencyService = currencyService;
             this._localizationService = localizationService;
             this._logger = logger;
-            this._orderTotalCalculationService = orderTotalCalculationService;
             this._pageHeadBuilder = pageHeadBuilder;
             this._settingService = settingService;            
-            this._webHelper = webHelper;            
+            this._webHelper = webHelper;
+            this._paymentService = paymentService;
+            this._urlRecordService = urlRecordService;
         }
 
         #endregion
@@ -170,7 +172,7 @@ namespace Nop.Plugin.Payments.G2APay
                     Price = item.UnitPriceInclTax.ToString("0.00", CultureInfo.InvariantCulture),
                     Quantity = item.Quantity,
                     Amount = item.PriceInclTax.ToString("0.00", CultureInfo.InvariantCulture),
-                    Url = $"{storeLocation}{item.Product.GetSeName()}"
+                    Url = $"{storeLocation}{_urlRecordService.GetSeName(item.Product)}"
                 }).ToList();
             //add special item for the shipping rate, payment fee, tax, etc
             var difference = postProcessPaymentRequest.Order.OrderTotal - postProcessPaymentRequest.Order.OrderItems.Sum(item => item.PriceInclTax);
@@ -245,7 +247,7 @@ namespace Nop.Plugin.Payments.G2APay
         /// <returns>Additional handling fee</returns>
         public decimal GetAdditionalHandlingFee(IList<ShoppingCartItem> cart)
         {
-            var result = this.CalculateAdditionalFee(_orderTotalCalculationService, cart,
+            var result = _paymentService.CalculateAdditionalFee(cart,
                 _g2APayPaymentSettings.AdditionalFee, _g2APayPaymentSettings.AdditionalFeePercentage);
 
             return result;
@@ -394,9 +396,9 @@ namespace Nop.Plugin.Payments.G2APay
             return $"{_webHelper.GetStoreLocation()}Admin/PaymentG2APay/Configure";
         }
 
-        public void GetPublicViewComponent(out string viewComponentName)
+        public string GetPublicViewComponentName()
         {
-            viewComponentName = "PaymentG2APay";
+            return "PaymentG2APay";
         }
 
         public IList<string> ValidatePaymentForm(IFormCollection form)
@@ -430,24 +432,24 @@ namespace Nop.Plugin.Payments.G2APay
             });
 
             //locales
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFee", "Additional fee");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFee.Hint", "Enter additional fee to charge your customers.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFeePercentage", "Additional fee. Use percentage");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFeePercentage.Hint", "Determines whether to apply a percentage additional fee to the order total. If not enabled, a fixed value is used.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.APIHash", "API Hash");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.APIHash.Hint", "Specify your G2A Pay API hash.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.IpnUrl", "IPN URI");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.IpnUrl.Hint", "Copy this IPN URI to section Settings > Merchant on your G2A Pay account.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.MerchantEmail", "Merchant email");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.MerchantEmail.Hint", "Specify your merchant email (G2A account name).");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.SecretKey", "Secret");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.SecretKey.Hint", "Specify your G2A Pay secret.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.UseSandbox", "Use Sandbox");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.UseSandbox.Hint", "Check to enable sandbox (testing environment).");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.PaymentMethodDescription", "You will be redirected to G2A Pay site to complete the payment");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.RedirectionTip", "You will be redirected to G2A Pay site to complete the order.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Refund", "Refund will happen later, after receiving successful IPN by G2A Pay service.");
-            this.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.SpecialItem", "Additional charges (delivery, payment fee, taxes, discounts, etc)");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFee", "Additional fee");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFee.Hint", "Enter additional fee to charge your customers.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFeePercentage", "Additional fee. Use percentage");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFeePercentage.Hint", "Determines whether to apply a percentage additional fee to the order total. If not enabled, a fixed value is used.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.APIHash", "API Hash");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.APIHash.Hint", "Specify your G2A Pay API hash.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.IpnUrl", "IPN URI");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.IpnUrl.Hint", "Copy this IPN URI to section Settings > Merchant on your G2A Pay account.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.MerchantEmail", "Merchant email");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.MerchantEmail.Hint", "Specify your merchant email (G2A account name).");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.SecretKey", "Secret");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.SecretKey.Hint", "Specify your G2A Pay secret.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.UseSandbox", "Use Sandbox");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Fields.UseSandbox.Hint", "Check to enable sandbox (testing environment).");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.PaymentMethodDescription", "You will be redirected to G2A Pay site to complete the payment");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.RedirectionTip", "You will be redirected to G2A Pay site to complete the order.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.Refund", "Refund will happen later, after receiving successful IPN by G2A Pay service.");
+            _localizationService.AddOrUpdatePluginLocaleResource("Plugins.Payments.G2APay.SpecialItem", "Additional charges (delivery, payment fee, taxes, discounts, etc)");
 
             base.Install();
         }
@@ -461,24 +463,24 @@ namespace Nop.Plugin.Payments.G2APay
             _settingService.DeleteSetting<G2APayPaymentSettings>();
 
             //locales
-            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFee");
-            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFee.Hint");
-            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFeePercentage");
-            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFeePercentage.Hint");
-            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.APIHash");
-            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.APIHash.Hint");
-            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.IpnUrl");
-            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.IpnUrl.Hint");
-            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.MerchantEmail");
-            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.MerchantEmail.Hint");
-            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.SecretKey");
-            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.SecretKey.Hint");
-            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.UseSandbox");
-            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.UseSandbox.Hint");
-            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.PaymentMethodDescription");
-            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.RedirectionTip");
-            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.Refund");
-            this.DeletePluginLocaleResource("Plugins.Payments.G2APay.SpecialItem");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFee");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFee.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFeePercentage");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.AdditionalFeePercentage.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.APIHash");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.APIHash.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.IpnUrl");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.IpnUrl.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.MerchantEmail");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.MerchantEmail.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.SecretKey");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.SecretKey.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.UseSandbox");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.G2APay.Fields.UseSandbox.Hint");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.G2APay.PaymentMethodDescription");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.G2APay.RedirectionTip");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.G2APay.Refund");
+            _localizationService.DeletePluginLocaleResource("Plugins.Payments.G2APay.SpecialItem");
 
             base.Uninstall();
         }
